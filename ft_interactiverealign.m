@@ -391,18 +391,12 @@ if ~isempty(individual.grad)
   ft_plot_sens(individual.grad, individual.gradstyle{:});
 end
 
-% FIXME this only works for boundary element models
-if isstruct(template.headmodel) && isfield(template.headmodel, 'bnd')
-  for i = 1:numel(template.headmodel.bnd)
-    ft_plot_mesh(template.headmodel.bnd(i), template.headmodelstyle{:});
-  end
+if isstruct(template.headmodel)
+  ft_plot_headmodel(template.headmodel, template.headmodelstyle{:});
 end
 
-% FIXME this only works for boundary element models
-if isstruct(individual.headmodel) && isfield(individual.headmodel, 'bnd')
-  for i = 1:numel(individual.headmodel.bnd)
-    ft_plot_mesh(individual.headmodel.bnd(i), individual.headmodelstyle{:});
-  end
+if isstruct(individual.headmodel)
+  ft_plot_headmodel(individual.headmodel, individual.headmodelstyle{:});
 end
 
 if isstruct(template.headshape) && isfield(template.headshape, 'pos') && ~isempty(template.headshape.pos)
@@ -415,8 +409,11 @@ end
 
 alpha(str2double(get(findobj(fig, 'tag', 'alpha'), 'string')));
 lighting gouraud
-material shiny
-camlight
+l = lightangle(0, 90);  set(l, 'Color', [1 1 1]/2)
+l = lightangle(  0, 0); set(l, 'Color', [1 1 1]/3)
+l = lightangle( 90, 0); set(l, 'Color', [1 1 1]/3)
+l = lightangle(180, 0); set(l, 'Color', [1 1 1]/3)
+l = lightangle(270, 0); set(l, 'Color', [1 1 1]/3)
 
 if strcmp(get(h, 'tag'), 'toggle labels')
   setappdata(fig, 'toggle_labels', ~getappdata(fig, 'toggle_labels'))
@@ -580,7 +577,7 @@ if ischar(style)
     case 'edge'
       style = {'vertexcolor', 'none', 'edgecolor', 'k', 'facecolor', 'none'};
     case 'surface'
-      style = {'vertexcolor', 'none', 'edgecolor', 'none', 'facecolor', 'skin'};
+      style = {'vertexcolor', 'none', 'edgecolor', 'none', 'facecolor', 'skin', 'material', 'dull'};
     case 'both'
       style = {'vertexcolor', 'none', 'edgecolor', 'k', 'facecolor', 'skin'};
     otherwise

@@ -1,4 +1,4 @@
-function s1 = appendstruct(varargin)
+function s = appendstruct(varargin)
 
 % APPENDSTRUCT appends a structure to a structure or struct-array.
 % It also works if the initial structure is an empty structure or
@@ -38,10 +38,9 @@ end
 
 if nargin>2
   % use recursion to append multiple structures
-  s1 = varargin{1};
+  s = varargin{1};
   for i=2:nargin
-    s2 = varargin{i};
-    s1 = appendstruct(s1, s2);
+    s = appendstruct(s, varargin{i});
   end
   return
 else
@@ -50,29 +49,28 @@ else
   s2 = varargin{2};
 end
 
-if isempty(s1) && ~isstruct(s1)
-  % this results in a 1×0 empty struct array with no fields
-  s1 = struct();
-  s1(1) = [];
+if isempty(s1) && isempty(s2)
+  % this results in a 0x0 empty struct array with no fields
+  s = struct([]);
+elseif isempty(s1) && ~isempty(s2)
+  % return only the second one
+  s = s2;
+elseif isempty(s2) && ~isempty(s1)
+  % return only the first one
+  s = s1;
+else
+  % concatenate the second structure to the first
+  fn1 = fieldnames(s1);
+  fn2 = fieldnames(s2);
+  % find the fields that are missing in either one
+  missing1 = setdiff(union(fn1, fn2), fn1);
+  missing2 = setdiff(union(fn1, fn2), fn2);
+  % add the missing fields
+  for i=1:numel(missing1)
+    s1(1).(missing1{i}) = [];
+  end
+  for i=1:numel(missing2)
+    s2(1).(missing2{i}) = [];
+  end
+  s = cat(1, s1(:), s2(:));
 end
-
-if isempty(s2) && ~isstruct(s2)
-  % this results in a 1×0 empty struct array with no fields
-  s2 = struct();
-  s2(1) = [];
-end
-
-fn1 = fieldnames(s1);
-fn2 = fieldnames(s2);
-% find the fields that are missing in either one
-missing1 = setdiff(union(fn1, fn2), fn1);
-missing2 = setdiff(union(fn1, fn2), fn2);
-% add the missing fields
-for i=1:numel(missing1)
-  s1(1).(missing1{i}) = [];
-end
-for i=1:numel(missing2)
-  s2(1).(missing2{i}) = [];
-end
-% concatenate the second structure to the first
-s1 = cat(1, s1(:), s2(:));

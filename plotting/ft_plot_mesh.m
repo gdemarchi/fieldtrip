@@ -1,9 +1,10 @@
 function [hs] = ft_plot_mesh(mesh, varargin)
 
-% FT_PLOT_MESH visualizes a surface or volumetric mesh, for example describing the
-% realistic shape of the head. Surface meshes should be described by triangles and
-% contain the fields "pos" and "tri". Volumetric meshes should be described with
-% tetraheders or hexaheders and have the fields "pos" and "tet" or "hex".
+% FT_PLOT_MESH visualizes a surface or volumetric mesh, for example with the cortical
+% folding of the brain, or the scalp surface of the head. Surface meshes are
+% described by triangles and consist of a structure with the fields "pos" and "tri".
+% Volumetric meshes are described with tetraheders or hexaheders and have the fields
+% "pos" and "tet" or "hex".
 %
 % Use as
 %   ft_plot_mesh(mesh, ...)
@@ -23,7 +24,7 @@ function [hs] = ft_plot_mesh(mesh, varargin)
 %   'vertexsize'   = scalar or vector with the size for each vertex (default = 10)
 %   'unit'         = string, convert to the specified geometrical units (default = [])
 %   'maskstyle',   = 'opacity' or 'colormix', if the latter is specified, opacity masked color values
-%                    are converted (in combination with a background color) to rgb. This bypasses
+%                    are converted (in combination with a background color) to RGB. This bypasses
 %                    openGL functionality, which behaves unpredictably on some platforms (e.g. when
 %                    using software opengl)
 %
@@ -93,43 +94,46 @@ else
   facecolor    = ft_getopt(varargin, 'facecolor',   'white');
   edgecolor    = ft_getopt(varargin, 'edgecolor',   'k');
 end
-faceindex    = ft_getopt(varargin, 'faceindex',   false);
-vertexindex  = ft_getopt(varargin, 'vertexindex', false);
-vertexsize   = ft_getopt(varargin, 'vertexsize',  10);
-vertexmarker = ft_getopt(varargin, 'vertexmarker', '.');
-facealpha    = ft_getopt(varargin, 'facealpha',   1);
-edgealpha    = ft_getopt(varargin, 'edgealpha',   1);
-tag          = ft_getopt(varargin, 'tag',         '');
-surfaceonly  = ft_getopt(varargin, 'surfaceonly');  % default is handled below
-unit         = ft_getopt(varargin, 'unit');
-clim         = ft_getopt(varargin, 'clim');
-alphalim     = ft_getopt(varargin, 'alphalim');
-alphamapping = ft_getopt(varargin, 'alphamap', 'rampup');
-cmap         = ft_getopt(varargin, 'colormap');
-maskstyle    = ft_getopt(varargin, 'maskstyle', 'opacity');
-contour      = ft_getopt(varargin, 'contour',   []);
+faceindex     = ft_getopt(varargin, 'faceindex',   false);
+vertexindex   = ft_getopt(varargin, 'vertexindex', false);
+vertexsize    = ft_getopt(varargin, 'vertexsize',  10);
+vertexmarker  = ft_getopt(varargin, 'vertexmarker', '.');
+facealpha     = ft_getopt(varargin, 'facealpha',   1);
+edgealpha     = ft_getopt(varargin, 'edgealpha',   1);
+edgelinewidth = ft_getopt(varargin, 'edgelinewidth', .5);
+material_     = ft_getopt(varargin, 'material');        % note the underscore, there is also a material function
+tag           = ft_getopt(varargin, 'tag',         '');
+surfaceonly   = ft_getopt(varargin, 'surfaceonly');     % default is handled below
+unit          = ft_getopt(varargin, 'unit');
+clim          = ft_getopt(varargin, 'clim');
+alphalim      = ft_getopt(varargin, 'alphalim');
+alphamapping  = ft_getopt(varargin, 'alphamap', 'rampup');
+cmap          = ft_getopt(varargin, 'colormap');
+maskstyle     = ft_getopt(varargin, 'maskstyle', 'opacity');
+contour       = ft_getopt(varargin, 'contour',   []);
 
 contourcolor      = ft_getopt(varargin, 'contourcolor',     'k');
 contourlinewidth  = ft_getopt(varargin, 'contourlinewidth', 3);
 contourlinestyle  = ft_getopt(varargin, 'contourlinestyle', '-');
 
-
-haspos   = isfield(mesh, 'pos');  % vertices
-hastri   = isfield(mesh, 'tri');  % triangles   as a Mx3 matrix with vertex indices
-hastet   = isfield(mesh, 'tet');  % tetraheders as a Mx4 matrix with vertex indices
-hashex   = isfield(mesh, 'hex');  % hexaheders  as a Mx8 matrix with vertex indices
-hasline  = isfield(mesh, 'line'); % line segments in 3-D
-haspoly  = isfield(mesh, 'poly'); % polynomial surfaces in 3-D
+haspos   = isfield(mesh, 'pos');   % vertices
+hastri   = isfield(mesh, 'tri');   % triangles   as a Mx3 matrix with vertex indices
+hastet   = isfield(mesh, 'tet');   % tetraheders as a Mx4 matrix with vertex indices
+hashex   = isfield(mesh, 'hex');   % hexaheders  as a Mx8 matrix with vertex indices
+hasline  = isfield(mesh, 'line');  % line segments in 3-D
+haspoly  = isfield(mesh, 'poly');  % polygons describing a surface in 3-D
 hascolor = isfield(mesh, 'color'); % color code for vertices
 
-if hastet && isempty(surfaceonly)
-  ft_warning('only visualizing the outer surface of the tetrahedral mesh, see the "surfaceonly" option')
-  surfaceonly = true;
-elseif hashex && isempty(surfaceonly)
-  ft_warning('only visualizing the outer surface of the hexahedral mesh, see the "surfaceonly" option')
-  surfaceonly = true;
-else
-  surfaceonly = false;
+if isempty(surfaceonly)
+  if hastet
+    ft_warning('only visualizing the outer surface of the tetrahedral mesh, see the "surfaceonly" option')
+    surfaceonly = true;
+  elseif hashex
+    ft_warning('only visualizing the outer surface of the hexahedral mesh, see the "surfaceonly" option')
+    surfaceonly = true;
+  else
+    surfaceonly = false;
+  end
 end
 
 if ~isempty(unit)
@@ -142,6 +146,7 @@ if surfaceonly
   hastri   = isfield(mesh, 'tri');  % triangles   as a Mx3 matrix with vertex indices
   hastet   = isfield(mesh, 'tet');  % tetraheders as a Mx4 matrix with vertex indices
   hashex   = isfield(mesh, 'hex');  % hexaheders  as a Mx8 matrix with vertex indices
+  haspoly  = isfield(mesh, 'poly'); % polygons
 end
 
 % convert string into boolean values
@@ -172,6 +177,8 @@ end
 % color management
 if ischar(vertexcolor) && exist([vertexcolor '.m'], 'file')
   vertexcolor = eval(vertexcolor);
+elseif ischar(vertexcolor) && ismember(vertexcolor, htmlcolors)
+  vertexcolor = htmlcolors(vertexcolor);
 elseif ischar(vertexcolor) && isequal(vertexcolor, 'curv') % default of ft_sourceplot method surface
   if isfield(mesh, 'curv')
     cortex_light = eval('cortex_light');
@@ -184,11 +191,17 @@ elseif ischar(vertexcolor) && isequal(vertexcolor, 'curv') % default of ft_sourc
     ft_warning('no curv field present in the mesh structure, using cortex_light as vertexcolor')
   end
 end
+
 if ischar(facecolor) && exist([facecolor '.m'], 'file')
   facecolor = eval(facecolor);
+elseif ischar(facecolor) && ismember(facecolor, htmlcolors)
+  facecolor = htmlcolors(facecolor);
 end
+
 if ischar(edgecolor) && exist([edgecolor '.m'], 'file')
   edgecolor = eval(edgecolor);
+elseif ischar(edgecolor) && ismember(edgecolor, htmlcolors)
+  edgecolor = htmlcolors(edgecolor);
 end
 
 % everything is added to the current figure
@@ -263,7 +276,12 @@ if haspos
   end
   %set(hs, 'FaceColor', facecolor);
   set(hs, 'EdgeColor', edgecolor);
+  set(hs, 'LineWidth', edgelinewidth);
   set(hs, 'tag', tag);
+end
+
+if ~isempty(material_)
+  material(material_); % dull, shiny or default
 end
 
 % the vertexcolor can be specified either as a RGB color for each vertex, or as a single value at each vertex
@@ -280,13 +298,13 @@ switch maskstyle
       set(hs, 'FaceVertexCData', vertexcolor, 'FaceColor', 'interp');
       if numel(vertexcolor)==size(pos,1)
         if ~isempty(clim), set(gca, 'clim', clim); end
-        if ~isempty(cmap), colormap(cmap); end
+        if ~isempty(cmap), ft_colormap(cmap); end
       end
     elseif facepotential
       set(hs, 'FaceVertexCData', facecolor, 'FaceColor', 'flat');
       if numel(facecolor)==size(tri,1)
         if ~isempty(clim), set(gca, 'clim', clim); end
-        if ~isempty(cmap), colormap(cmap); end
+        if ~isempty(cmap), ft_colormap(cmap); end
       end
     else
       % the color is indicated as a single character or as a single RGB triplet
@@ -483,7 +501,6 @@ if ~isequal(vertexcolor, 'none') && ~vertexpotential
   end
   
 end % plotting the vertices as points
-
 
 if vertexindex
   % plot the vertex indices (numbers) at each node

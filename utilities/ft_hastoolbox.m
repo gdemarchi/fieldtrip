@@ -1,21 +1,21 @@
 function [status] = ft_hastoolbox(toolbox, autoadd, silent)
 
-% FT_HASTOOLBOX tests whether an external toolbox is installed. Optionally
-% it will try to determine the path to the toolbox and install it
-% automatically.
+% FT_HASTOOLBOX tests whether an external toolbox is installed. Optionally it will
+% try to determine the path to the toolbox and install it automatically.
 %
 % Use as
 %   [status] = ft_hastoolbox(toolbox, autoadd, silent)
 %
-% autoadd = 0 means that it will not be added
-% autoadd = 1 means that give an error if it cannot be added
-% autoadd = 2 means that give a warning if it cannot be added
-% autoadd = 3 means that it remains silent if it cannot be added
+% autoadd = -1 means that it will check and give an error when not yet installed
+% autoadd =  0 means that it will check and give a warning when not yet installed
+% autoadd =  1 means that it will check and give an error if it cannot be added
+% autoadd =  2 means that it will check and give a warning if it cannot be added
+% autoadd =  3 means that it will check but remain silent if it cannot be added
 %
 % silent = 0 means that it will give some feedback about adding the toolbox
 % silent = 1 means that it will not give feedback
 
-% Copyright (C) 2005-2017, Robert Oostenveld
+% Copyright (C) 2005-2019, Robert Oostenveld
 %
 % This file is part of FieldTrip, see http://www.fieldtriptoolbox.org
 % for the documentation and details.
@@ -62,6 +62,7 @@ url = {
   'DSS'        'see http://www.cis.hut.fi/projects/dss'
   'EEGLAB'     'see http://www.sccn.ucsd.edu/eeglab'
   'NWAY'       'see http://www.models.kvl.dk/source/nwaytoolbox'
+  'SPM'        'see http://www.fil.ion.ucl.ac.uk/spm'
   'SPM99'      'see http://www.fil.ion.ucl.ac.uk/spm'
   'SPM2'       'see http://www.fil.ion.ucl.ac.uk/spm'
   'SPM5'       'see http://www.fil.ion.ucl.ac.uk/spm'
@@ -132,13 +133,12 @@ url = {
   'MYSQL'         'see http://www.mathworks.com/matlabcentral/fileexchange/8663-mysql-database-connector'
   'ISO2MESH'      'see http://iso2mesh.sourceforge.net/cgi-bin/index.cgi?Home or contact Qianqian Fang'
   'DATAHASH'      'see http://www.mathworks.com/matlabcentral/fileexchange/31272'
-  'IBTB'          'see https://github.com/selimonat/InformationBreakdownToolbox'
+  'IBTB'          'see Magri et al. BMC Neurosci 2009, 10:81'
   'ICASSO'        'see http://www.cis.hut.fi/projects/ica/icasso'
   'XUNIT'         'see http://www.mathworks.com/matlabcentral/fileexchange/22846-matlab-xunit-test-framework'
   'PLEXON'        'available from http://www.plexon.com/assets/downloads/sdk/ReadingPLXandDDTfilesinMatlab-mexw.zip'
   'MISC'          'various functions that were downloaded from http://www.mathworks.com/matlabcentral/fileexchange and elsewhere'
   '35625-INFORMATION-THEORY-TOOLBOX'      'see http://www.mathworks.com/matlabcentral/fileexchange/35625-information-theory-toolbox'
-  '29046-MUTUAL-INFORMATION'              'see http://www.mathworks.com/matlabcentral/fileexchange/35625-information-theory-toolbox'
   '14888-MUTUAL-INFORMATION-COMPUTATION'  'see http://www.mathworks.com/matlabcentral/fileexchange/14888-mutual-information-computation'
   'PLOT2SVG'      'see http://www.mathworks.com/matlabcentral/fileexchange/7401-scalable-vector-graphics-svg-export-of-figures'
   'BRAINSUITE'    'see http://brainsuite.bmap.ucla.edu/processing/additional-tools/'
@@ -161,6 +161,16 @@ url = {
   'MVPA-LIGHT'    'see https://github.com/treder/MVPA-Light'
   'XDF'           'see https://github.com/xdf-modules/xdf-Matlab'
   'MRTRIX'        'see https://mrtrix.org'
+  'BAYESFACTOR'   'see https://klabhub.github.io/bayesFactor'
+  'EZC3D'         'see https://github.com/pyomeca/ezc3d'
+  'GCMI'          'see https://github.com/robince/gcmi'
+  'XSENS'         'see https://www.xsens.com/motion-capture and http://www.fieldtriptoolbox.org/getting_started/xsens/'
+  'MAYO_MEF'      'see https://github.com/MultimodalNeuroimagingLab/mef_reader_fieldtrip and https://msel.mayo.edu/codes.html'
+  'MATNWB'        'see https://neurodatawithoutborders.github.io/matnwb/'
+  'MATPLOTLIB'    'see https://nl.mathworks.com/matlabcentral/fileexchange/62729-matplotlib-perceptually-uniform-colormaps'
+  'CMOCEAN'       'see https://nl.mathworks.com/matlabcentral/fileexchange/57773-matplotlib-perceptually-uniform-colormaps'
+  'HOMER3'        'see https://github.com/BUNPC/Homer3 and https://github.com/fNIRS/snirf_homer3'
+  'DUNEURO'       'see http://duneuro.org/ and https://www.fieldtriptoolbox.org/workshop/ohbm2018/'
   };
 
 if nargin<2
@@ -181,9 +191,9 @@ fallback_toolbox='';
 
 switch toolbox
   case 'AFNI'
-    dependency={'BrikLoad', 'BrikInfo'};
+    dependency= {'BrikLoad', 'BrikInfo'};
   case 'DSS'
-    dependency={'denss', 'dss_create_state'};
+    dependency= {'denss', 'dss_create_state'};
   case 'EEGLAB'
     dependency = 'runica';
   case 'NWAY'
@@ -196,25 +206,25 @@ switch toolbox
     dependency = {'spm', get_spm_version()==2};
   case 'SPM2UP' % version 2 or later, but not SPM 9X
     dependency = {'spm', get_spm_version()>=2, get_spm_version()<95};
-    %This is to avoid crashes when trying to add SPM to the path
-    fallback_toolbox = 'SPM8';
+    % this is to avoid crashes when trying to add SPM to the path
+    fallback_toolbox = 'SPM2';
   case 'SPM5'
     dependency = {'spm', get_spm_version()==5};
   case 'SPM5UP' % version 5 or later, but not SPM 9X
     dependency = {'spm', get_spm_version()>=5, get_spm_version()<95};
-    %This is to avoid crashes when trying to add SPM to the path
+    % this is to avoid crashes when trying to add SPM to the path
     fallback_toolbox = 'SPM5';
   case 'SPM8'
     dependency = {'spm', get_spm_version()==8};
   case 'SPM8UP' % version 8 or later, but not SPM 9X
     dependency = {'spm', get_spm_version()>=8, get_spm_version()<95};
-    %This is to avoid crashes when trying to add SPM to the path
+    % this is to avoid crashes when trying to add SPM to the path
     fallback_toolbox = 'SPM8';
   case 'SPM12'
     dependency = {'spm', get_spm_version()==12};
   case 'SPM12UP' % version 12 or later, but not SPM 9X
     dependency = {'spm', get_spm_version()>=12, get_spm_version()<95};
-    %This is to avoid crashes when trying to add SPM to the path
+    % this is to avoid crashes when trying to add SPM to the path
     fallback_toolbox = 'SPM12';
   case 'MEG-PD'
     dependency = {'rawdata', 'channames'};
@@ -332,17 +342,13 @@ switch toolbox
     dependency = {'netcdf'};
   case 'MYSQL'
     % this only consists of a single mex file
-    dependency = has_mex('mysql'); 
+    dependency = has_mex('mysql');
   case 'ISO2MESH'
     dependency = {'vol2surf', 'qmeshcut'};
-  case 'QSUB'
-    dependency = {'qsubfeval', 'qsubcellfun'};
-  case 'ENGINE'
-    dependency = {'enginefeval', 'enginecellfun'};
   case 'DATAHASH'
     dependency = {'DataHash'};
   case 'IBTB'
-    dependency = {'binr','information'};
+    dependency = {'binr','information', 'eqpop', 'eqspace', 'ceqspace', 'gseqspace'};
   case 'ICASSO'
     dependency = {'icassoEst'};
   case 'XUNIT'
@@ -352,16 +358,8 @@ switch toolbox
   case '35625-INFORMATION-THEORY-TOOLBOX'
     dependency = {'conditionalEntropy', 'entropy', 'jointEntropy',...
       'mutualInformation' 'nmi' 'nvi' 'relativeEntropy'};
-  case '29046-MUTUAL-INFORMATION'
-    dependency = {'MI', 'license.txt'};
   case '14888-MUTUAL-INFORMATION-COMPUTATION'
-    dependency = {'condentropy', 'demo_mi', 'estcondentropy.cpp',...
-      'estjointentropy.cpp', 'estpa.cpp', ...
-      'findjointstateab.cpp', 'makeosmex.m',...
-      'mutualinfo.m', 'condmutualinfo.m',...
-      'entropy.m', 'estentropy.cpp',...
-      'estmutualinfo.cpp', 'estpab.cpp',...
-      'jointentropy.m' 'mergemultivariables.m' };
+    dependency = {'condentropy', 'demo_mi', 'estcondentropy.cpp', 'estjointentropy.cpp', 'estpa.cpp', 'findjointstateab.cpp', 'makeosmex.m', 'mutualinfo.m', 'condmutualinfo.m', 'entropy.m', 'estentropy.cpp', 'estmutualinfo.cpp', 'estpab.cpp', 'jointentropy.m' 'mergemultivariables.m' };
   case 'PLOT2SVG'
     dependency = {'plot2svg.m', 'simulink2svg.m'};
   case 'BRAINSUITE'
@@ -400,30 +398,55 @@ switch toolbox
     dependency = {'load_xdf', 'load_xdf_innerloop'};
   case 'MRTRIX'
     dependency = {'read_mrtrix'};
-
-    % the following are FieldTrip modules/toolboxes
+  case 'BAYESFACTOR'
+    dependency = {'bf.ttest', 'bf.ttest2'};
+  case 'EZC3D'
+    dependency = {'ezc3dRead', 'ezc3dWrite'};
+  case 'GCMI'
+    dependency = {'copnorm' 'mi_gg'};
+  case 'XSENS'
+    dependency = {'load_mvnx'};
+  case 'MAYO_MEF' % MEF 2.1 and MEF 3.0
+    dependency = {'MEFFieldTrip_2p1', 'MEFFieldTrip_3p0'};
+  case 'MATNWB'
+    dependency = {'nwbRead', 'generateCore'};
+  case 'MATPLOTLIB'
+    dependency = {'cividis', 'inferno', 'magma', 'plasma', 'tab10', 'tab20', 'tab20b', 'tab20c', 'twilight', 'viridis'};
+  case 'CMOCEAN'
+    dependency = {'cmocean'};
+  case 'FILEEXCHANGE'
+    dependency = is_subdir_in_fieldtrip_path('/external/fileexchange');
+  case 'HOMER3'
+    dependency = {'SnirfClass' 'DataClass' 'AuxClass' 'MeasListClass' 'MetaDataTagsClass' 'ProbeClass' 'StimClass'};
+  case 'DUNEURO'
+    dependency = {'duneuro_meeg', 'duneuro_function', 'compute_B_primary'};
+    
+    % the following are FieldTrip modules or toolboxes
   case 'FILEIO'
     dependency = {'ft_read_header', 'ft_read_data', 'ft_read_event', 'ft_read_sens'};
   case 'FORWARD'
     dependency = {'ft_compute_leadfield', 'ft_prepare_vol_sens'};
+  case 'INVERSE'
+    dependency = {'ft_inverse_dics', 'ft_inverse_dipolefit', 'ft_inverse_lcmv', 'ft_inverse_mne', 'ft_inverse_pcc'};
   case 'PLOTTING'
     dependency = {'ft_plot_topo', 'ft_plot_mesh', 'ft_plot_matrix'};
+  case 'QSUB'
+    dependency = {'qsubcellfun', 'qsubfeval', 'qsubget'};
   case 'PEER'
-    dependency = {'peerslave', 'peermaster'};
+    dependency = {'peercellfun', 'peerfeval', 'peerget'};
+  case 'ENGINE'
+    dependency = {'enginecellfun', 'enginefeval', 'engineget'};
   case 'CONNECTIVITY'
     dependency = {'ft_connectivity_corr', 'ft_connectivity_granger'};
   case 'SPIKE'
     dependency = {'ft_spiketriggeredaverage', 'ft_spiketriggeredspectrum'};
-  case 'FILEEXCHANGE'
-    dependency = is_subdir_in_fieldtrip_path('/external/fileexchange');
   case 'CELLFUNCTION'
     dependency = {'cellmean', 'cellvecadd', 'cellcat'};
-  case {'INVERSE', 'REALTIME', 'SPECEST', 'PREPROC', ...
-      'COMPAT', 'STATFUN', 'TRIALFUN', 'UTILITIES/COMPAT', ...
-      'FILEIO/COMPAT', 'PREPROC/COMPAT', 'FORWARD/COMPAT', ...
-      'PLOTTING/COMPAT', 'TEMPLATE/LAYOUT', 'TEMPLATE/ANATOMY' ,...
-      'TEMPLATE/HEADMODEL', 'TEMPLATE/ELECTRODE', ...
-      'TEMPLATE/NEIGHBOURS', 'TEMPLATE/SOURCEMODEL'}
+  case 'SPECEST'
+    dependency = {'ft_specest_mtmconvol', 'ft_specest_mtmfft', 'ft_specest_wavelet'};
+  case 'PREPROC'
+    dependency = {'ft_preproc_detrend', 'ft_preproc_baselinecorrect', 'ft_preproc_bandpassfilter', 'ft_preproc_bandstopfilter'};
+  case {'REALTIME', 'STATFUN', 'TRIALFUN', 'TEMPLATE/LAYOUT', 'TEMPLATE/ANATOMY', 'TEMPLATE/ATLAS', 'TEMPLATE/DEWAR', 'TEMPLATE/HEADMODEL', 'TEMPLATE/ELECTRODE', 'TEMPLATE/NEIGHBOURS', 'TEMPLATE/SOURCEMODEL'}
     dependency = is_subdir_in_fieldtrip_path(toolbox);
   otherwise
     if ~silent, ft_warning('cannot determine whether the %s toolbox is present', toolbox); end
@@ -436,8 +459,8 @@ if ~status && ~isempty(fallback_toolbox)
   toolbox = fallback_toolbox;
 end
 
-% try to determine the path of the requested toolbox
-if autoadd>0 && ~status
+% try to determine the path of the requested toolbox and add it
+if ~status && autoadd>0
   
   % for core FieldTrip modules
   prefix = fileparts(which('ft_defaults'));
@@ -451,7 +474,7 @@ if autoadd>0 && ~status
     status = myaddpath(fullfile(prefix, lower(toolbox)), silent);
     licensefile = [lower(toolbox) '_license'];
     if status && exist(licensefile, 'file')
-      % this will execute openmeeg_license and mne_license
+      % this will execute openmeeg_license, mne_license and duneuro_license
       % which display the license on screen for three seconds
       feval(licensefile);
     end
@@ -503,6 +526,16 @@ if autoadd>0 && ~status
       % fail silently
     end
   end
+  
+elseif ~status && autoadd<0
+  % the toolbox is not on the path and should not be added
+  sel = find(strcmp(url(:,1), toolbox));
+  if ~isempty(sel)
+    msg = sprintf('the %s toolbox is not installed, %s', toolbox, url{sel, 2});
+  else
+    msg = sprintf('the %s toolbox is not installed', toolbox);
+  end
+  ft_error(msg);
 end
 
 % this function is called many times in FieldTrip and associated toolboxes
@@ -530,7 +563,7 @@ if ~isfolder(toolbox)
     toolbox = fullfile(p, dirlist(sel).name);
   end
 end
-  
+
 if isdeployed
   ft_warning('cannot change path settings for %s in a compiled application', toolbox);
   status = true;
@@ -549,6 +582,9 @@ elseif isfolder(toolbox)
     % this comes with its own startup script
     addpath(fullfile(toolbox, 'startup'))
     startup_MVPA_Light;
+  elseif ~isempty(regexp(lower(toolbox), 'ibtb', 'once'))
+    % this needs to be added with all its subdirectories
+    addpath(genpath(toolbox));
   else
     addpath(toolbox);
   end
@@ -693,4 +729,3 @@ status = ~isempty(w) && ~isequal(w, 'variable');
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function tf = isfolder(dirpath)
 tf = exist(dirpath,'dir') == 7;
-

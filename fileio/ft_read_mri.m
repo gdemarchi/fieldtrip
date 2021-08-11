@@ -11,6 +11,9 @@ function [mri] = ft_read_mri(filename, varargin)
 %   'dataformat' = string specifying the file format, determining the low-
 %                  level reading routine to be used. If no explicit format
 %                  is given, it is determined automatically from the filename.
+%   'outputfield' = string specifying the name of the field in the
+%                  structure in which the numeric data is stored. The
+%                  default is 'anatomy'
 %
 % The following values apply for the dataformat
 %   'afni_head'/'afni_brik'      uses AFNI code
@@ -42,7 +45,7 @@ function [mri] = ft_read_mri(filename, varargin)
 %   AFNI (*.head, *.brik)
 %   FreeSurfer (*.mgz, *.mgh)
 %   MINC (*.mnc)
-%   Neuromag/Elekta (*.fif)
+%   Neuromag/Elekta/Megin (*.fif)
 %   ANT - Advanced Neuro Technology (*.mri)
 %   Yokogawa (*.mrk, incomplete)
 %   Mrtrix image format (*.mif)
@@ -54,9 +57,20 @@ function [mri] = ft_read_mri(filename, varargin)
 % the coordinates of each voxel (in xgrid/ygrid/zgrid) into head
 % coordinates.
 %
+% If the input file is a 4D nifti, and you wish to load in just a subset of
+% the volumes (e.g. due to memory constraints), you should use as
+% dataformat 'nifti_spm': this supports the additional key-value pair
+%   'volumes' = vector, with indices of the to-be-read volumes, the order
+%   of the indices is ignored, and the volumes will be sorted according to
+%   the numeric indices, i.e. [1:10] yields the same as [10:-1:1]
+%
 % See also FT_DATATYPE_VOLUME, FT_WRITE_MRI, FT_READ_DATA, FT_READ_HEADER, FT_READ_EVENT
 
-% Copyright (C) 2008-2013, Robert Oostenveld & Jan-Mathijs Schoffelen
+% Undocumented options
+%   'fixel2voxel' = string, operation to apply to the fixels belonging to  the same voxel (only for *.mif). 'max' (default), 'min', 'mean'
+%   'indexfile'   = string, pointing to a fixel index file, if not present in the same directory as the functional data
+
+% Copyright (C) 2008-2020, Robert Oostenveld & Jan-Mathijs Schoffelen
 %
 % This file is part of FieldTrip, see http://www.fieldtriptoolbox.org
 % for the documentation and details.
@@ -80,7 +94,8 @@ function [mri] = ft_read_mri(filename, varargin)
 filename = fetch_url(filename);
 
 % get the options
-dataformat = ft_getopt(varargin, 'dataformat');
+dataformat  = ft_getopt(varargin, 'dataformat');
+outputfield = ft_getopt(varargin, 'outputfield', 'anatomy');
 
 % the following is added for backward compatibility of using 'format' rather than 'dataformat'
 format    = ft_getopt(varargin, 'format');
@@ -96,10 +111,16 @@ if isempty(dataformat)
   dataformat = ft_filetype(filename);
 end
 
-if strcmp(dataformat, 'compressed')
-  % the file is compressed, unzip on the fly
+if strcmp(dataformat, 'compressed') || (strcmp(dataformat, 'freesurfer_mgz') && ispc)
+  % the file is compressed, unzip on the fly, freesurfer mgz files get
+  % special treatment on a pc
   inflated = true;
   filename = inflate_file(filename);
+  if strcmp(dataformat, 'freesurfer_mgz')
+    filename_old = filename;
+    filename     = [filename '.mgh'];
+    movefile(filename_old, filename);
+  end
   dataformat = ft_filetype(filename);
 else
   inflated = false;
@@ -154,9 +175,16 @@ switch dataformat
       fprintf('the SPM5 or newer toolbox is required to read *.nii files\n');
       ft_hastoolbox('spm12', 1);
     end
+    volumes = ft_getopt(varargin, 'volumes', []);
+    
     % use the functions from SPM
     hdr = spm_vol_nifti(filename);
-    img = double(hdr.private.dat);
+    if isempty(volumes)
+      img = double(hdr.private.dat);
+    else
+      volumes = sort(intersect(volumes, 1:size(hdr.private.dat,4)));
+      img = double(hdr.private.dat(:,:,:,volumes));
+    end
     %img = spm_read_vols(hdr);
     transform = hdr.mat;
 
@@ -388,10 +416,7 @@ switch dataformat
       transform(3,3) = dz;
     end
 
-  case {'nifti', 'freesurfer_mgz', 'freesurfer_mgh', 'nifti_fsl'}
-    if strcmp(dataformat, 'freesurfer_mgz') && ispc
-      ft_error('Compressed .mgz files cannot be read on a PC');
-    end
+  case {'nifti', 'freesurfer_mgz', 'freesurfer_mgh', 'nifti_gz'}
 
     ft_hastoolbox('freesurfer', 1);
     tmp = MRIread(filename);
@@ -432,12 +457,68 @@ switch dataformat
 
   case {'mif' 'mrtrix_mif'}
     ft_hastoolbox('mrtrix', 1);
+    
     tmp = read_mrtrix(filename);
     
-    mri.anatomy = tmp.data;
-    mri.dim     = tmp.dim;
-    mri.transform = tmp.transform;
-    mri.transform(1:3,1:3) = diag(tmp.vox(1:3))*mri.transform(1:3,1:3);
+    % check if it's sparse fixeldata
+    isfixel = numel(tmp.dim==3)&&tmp.dim(3)==1;
+      
+    if ~isfixel
+      mri.hdr     = removefields(tmp, {'data'});
+      mri.(outputfield) = tmp.data;
+      mri.dim     = tmp.dim(1:length(size(tmp.data)));
+      mri.transform = tmp.transform;
+      mri.transform(1:3,1:3) = diag(tmp.vox(1:3))*mri.transform(1:3,1:3);
+    else
+      fix2vox_fun = ft_getopt(varargin, 'fixel2voxel', 'max');
+      indexfile   = ft_getopt(varargin, 'indexfile');
+      if isempty(indexfile)
+        % assume the index file to be in the same directory as the data file
+        [p,f,e]   = fileparts(filename);
+        indexfile = fullfile(p,'index.mif');
+      end
+      index     = read_mrtrix(indexfile);
+      tmpdata   = reshape(index.data, [], 2);
+      
+      vox_index = find(tmpdata(:,1)>0);
+      num_index = tmpdata(vox_index,1);
+      fix_index = tmpdata(vox_index,2)+1;
+      
+      % create a mapping matrix of fixel2voxel -> currently this only works
+      % for scalar fixel data.
+      tmpdata = zeros(numel(num_index), max(num_index));
+      for k = 1:numel(num_index)
+        tmpdata(k, 1:num_index(k)) = fix_index(k)-1 + (1:num_index(k));
+      end
+      tmpdata(tmpdata==0) = nan;
+      tmpdata             = tmpdata.'; % transpose is intended
+      tmpdata(isfinite(tmpdata)) = tmp.data(tmpdata(isfinite(tmpdata)));
+      
+      switch fix2vox_fun
+        case 'magmax'
+          tmpx    = nanmin(tmpdata,[],1).';
+          tmpdata = nanmax(tmpdata,[],1).';
+          tmpdata(abs(tmpx)>tmpdata) = tmpx(abs(tmpx)>tmpdata);
+        case 'max'
+          tmpdata = nanmax(tmpdata,[],1).';
+        case 'min'
+          tmpdata = nanmin(tmpdata,[],1).';
+        case 'mean'
+          tmpdata = nanmean(tmpdata,1).';
+        case 'none'
+          tmpdata = tmpdata.';
+        otherwise
+          ft_error('unsupported fixel2voxel operation requested');
+      end
+      
+      mri.hdr  = removefields(tmp, {'data'});
+      mri.(outputfield) = zeros([prod(index.dim(1:3)) size(tmpdata,2)]);
+      mri.(outputfield)(vox_index,:) = tmpdata;
+      mri.(outputfield)   = reshape(mri.(outputfield), [index.dim(1:3) size(tmpdata,2)]);
+      mri.dim       = size(mri.(outputfield)) ;%index.dim(1:length(size(tmp.data)));
+      mri.transform = tmp.transform;
+      mri.transform(1:3,1:3) = diag(tmp.vox(1:3))*mri.transform(1:3,1:3);
+    end
     
   otherwise
     ft_error('unrecognized filetype ''%s'' for ''%s''', dataformat, filename);
@@ -450,7 +531,7 @@ if exist('img', 'var')
   %nz = size(img,3);
   mri.dim = size(img); %[nx ny nz];
   % store the anatomical data
-  mri.anatomy = img;
+  mri.(outputfield) = img;
 end
 
 if exist('seg', 'var')

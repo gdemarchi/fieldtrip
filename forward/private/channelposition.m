@@ -1,11 +1,11 @@
 function [pnt, ori, lab] = channelposition(sens)
 
 % CHANNELPOSITION computes the channel positions and orientations from the
-% coils or electrodes
+% MEG coils, EEG electrodes or NIRS optodes
 %
 % Use as
 %   [pos, ori, lab] = channelposition(sens)
-% where sens is an electrode,  gradiometer or optode array.
+% where sens is an gradiometer, electrode, or optode array.
 %
 % See also FT_DATATYPE_SENS
 
@@ -194,6 +194,8 @@ switch ft_senstype(sens)
     % find the matching channel-duplets
     ind = [];
     lab = {};
+    pnt = zeros(0,3);
+    ori = zeros(0,3);
     for i=1:2:140
       % first try MEG channel labels with a space
       ch1 = sprintf('MEG %03d', i);
@@ -225,6 +227,8 @@ switch ft_senstype(sens)
     % find the matching channel-triplets
     ind = [];
     lab = {};
+    pnt = zeros(0,3);
+    ori = zeros(0,3);
     for i=1:300
       % first try MEG channel labels with a space
       ch1 = sprintf('MEG %03d1', i);
@@ -270,19 +274,31 @@ switch ft_senstype(sens)
     if ~isfield(sens, 'tra') && isfield(sens, 'elecpos') && nchan==nelec
       % there is one electrode per channel, which means that the channel position is identical to the electrode position
       pnt = sens.elecpos;
-      ori = nan(size(pnt));
+      if isfield(sens, 'elecori')
+        ori = sens.elecori;
+      else
+        ori = nan(size(pnt));
+      end
       lab = sens.label;
 
     elseif isfield(sens, 'tra') && isfield(sens, 'elecpos') && isequal(sens.tra, eye(nelec))
       % there is one electrode per channel, which means that the channel position is identical to the electrode position
       pnt = sens.elecpos;
-      ori = nan(size(pnt));
+      if isfield(sens, 'elecori')
+        ori = sens.elecori;
+      else
+        ori = nan(size(pnt));
+      end
       lab = sens.label;
 
     elseif isfield(sens, 'tra') && isfield(sens, 'elecpos') && isequal(sens.tra, eye(nelec)-1/nelec)
       % there is one electrode per channel, channels are average referenced
       pnt = sens.elecpos;
-      ori = nan(size(pnt));
+      if isfield(sens, 'elecori')
+        ori = sens.elecori;
+      else
+        ori = nan(size(pnt));
+      end
       lab = sens.label;
 
     elseif ~isfield(sens, 'tra') && isfield(sens, 'coilpos') && nchan==ncoil
@@ -292,9 +308,13 @@ switch ft_senstype(sens)
       lab = sens.label;
 
     elseif ~isfield(sens, 'tra') && isfield(sens, 'optopos') && nchan==nopto
-      % there is one optode per channel, which means that the channel position is identical to the coil position
+      % there is one optode per channel, which means that the channel position is identical to the optode position
       pnt = sens.optopos;
-      ori = nan(size(pnt));
+      if isfield(sens, 'optoori')
+        ori = sens.optoori;
+      else
+        ori = nan(size(pnt));
+      end
       lab = sens.label;
 
     elseif isfield(sens, 'tra')
@@ -326,6 +346,7 @@ switch ft_senstype(sens)
       end
       lab = sens.label;
     end
+    
 end % switch senstype
 
 n = size(lab,2);

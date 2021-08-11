@@ -6,32 +6,29 @@ function [data] = ft_nirs_transform_ODs(cfg, data)
 %
 % Use as either
 %   [data]      = ft_nirs_transform_ODs(cfg, data)
-%   [freq]      = ft_nirs_transform_ODs(cfg, freq)
-%   [timelock]  = ft_nirs_transform_ODs(cfg, timelock)
-%   [component] = ft_nirs_transform_ODs(cfg, component)
 %
-%  The configuration "cfg" is a structure containing information about
-%  target of the transformation. The configuration should contain
-%  cfg.channel            = Nx1 cell-array with selection of channels
-%                           (default = 'nirs'), see FT_CHANNELSELECTION for
-%                           more details
-%  cfg.target             = Mx1 cell-array, can be 'O2Hb' (oxygenated hemo-
-%                           globin), 'HHb' de-oxygenated hemoglobin') or
-%                           'tHb' (total hemoglobin), or a combination of
-%                           those (default: {'O2Hb', 'HHb'})
+% The configuration "cfg" is a structure containing information about
+% target of the transformation. The configuration should contain
+%   cfg.channel            = Nx1 cell-array with selection of channels
+%                            (default = 'nirs'), see FT_CHANNELSELECTION for
+%                            more details
+%   cfg.target             = Mx1 cell-array, can be 'O2Hb' (oxygenated hemo-
+%                            globin), 'HHb' de-oxygenated hemoglobin') or
+%                            'tHb' (total hemoglobin), or a combination of
+%                            those (default: {'O2Hb', 'HHb'})
 %
 % Optional configuration settings are
-%  cfg.age                = scalar, age of the subject (necessary to
-%                           automatically select the appropriate DPF, or
-%  cfg.dpf                = scalar, differential path length factor
-%  cfg.dpffile            = string, location to a lookup table for the
-%                           relation between participant age and DPF
+%   cfg.age                = scalar, age of the subject (necessary to
+%                            automatically select the appropriate DPF, or
+%   cfg.dpf                = scalar, differential path length factor
+%   cfg.dpffile            = string, location to a lookup table for the
+%                            relation between participant age and DPF
 %
 % Note that the DPF might be different across channels, and is usually
 % stored in the optode structure contained in the data.
 %
 % The function returns data transformed to the specified chromophore
-% concentrations of the the requested
+% concentrations that were requested.
 %
 % To facilitate data-handling and distributed computing you can use
 %   cfg.inputfile   =  ...
@@ -63,8 +60,8 @@ function [data] = ft_nirs_transform_ODs(cfg, data)
 % -----------------------------------
 % You are free to:
 %
-%     Share � copy and redistribute the material in any medium or format
-%     Adapt � remix, transform, and build upon the material
+%     Share - copy and redistribute the material in any medium or format
+%     Adapt - remix, transform, and build upon the material
 %     for any purpose, even commercially.
 %
 %     The licensor cannot revoke these freedoms as long as you follow the
@@ -72,16 +69,16 @@ function [data] = ft_nirs_transform_ODs(cfg, data)
 %
 % Under the following terms:
 %
-%     Attribution � You must give appropriate credit, provide a link to
+%     Attribution - You must give appropriate credit, provide a link to
 %                    the license, and indicate if changes were made. You
 %                    may do so in any reasonable manner, but not in any way
 %                    that suggests the licensor endorses you or your use.
 %
-%     ShareAlike � If you remix, transform, or build upon the material,
+%     ShareAlike - If you remix, transform, or build upon the material,
 %                   you must distribute your contributions under the same
 %                   license as the original.
 %
-%     No additional restrictions � You may not apply legal terms or
+%     No additional restrictions - You may not apply legal terms or
 %                                   technological measures that legally
 %                                   restrict others from doing anything the
 %                                   license permits.
@@ -93,7 +90,7 @@ function [data] = ft_nirs_transform_ODs(cfg, data)
 % Copyright (c) 2015-2016 by Artinis Medical Systems.
 % Contact: askforinfo@artinis.com
 %
-% Main programmer: J�rn M. Horschig
+% Main programmer: Jörn M. Horschig
 % $Id$
 
 % these are used by the ft_preamble/ft_postamble function and scripts
@@ -115,38 +112,25 @@ if ft_abort
   return
 end
 
-data = ft_checkdata(data, 'datatype', {'raw', 'timelock', 'freq', 'comp'}, 'feedback', 'yes');
+data = ft_checkdata(data, 'datatype', 'raw', 'feedback', 'yes');
 
+% set the defaults
 cfg.channel = ft_getopt(cfg, 'channel', 'nirs');
+cfg.target  = ft_getopt(cfg, 'target', {'O2Hb', 'HHb'});
 
-% determine the type of input data
-if isfield(data, 'trial')
-  israw      = 1;
-  isfreq     = 0;
-  iscomp     = 0;
-  istimelock = 0;
-elseif isfield(data, 'freq')
-  israw      = 0;
-  isfreq     = 1;
-  iscomp     = 0;
-  istimelock = 0;
-elseif isfield(data, 'topo')
-  israw      = 0;
-  isfreq     = 0;
-  iscomp     = 1;
-  istimelock = 0;
-elseif isfield(data, 'avg')
-  israw      = 0;
-  iscomp     = 0;
-  isfreq     = 0;
-  istimelock = 1;
-else
-  error('input data is not recognized');
-end
+% determine the NIRS channels
+cfg.channel = ft_channelselection(cfg.channel, data);
 
+% make a copy of the data
+origdata = data;
+
+% keep only the NIRS channels
 data = ft_selectdata(cfg, data);
 
-cfg.target  = ft_getopt(cfg, 'target', {'O2Hb', 'HHb'});
+% also keep the non-NIRS channels
+tmpcfg = cfg;
+tmpcfg.channel = setdiff(origdata.label, cfg.channel);
+dataextra = ft_selectdata(tmpcfg, origdata);
 
 target = cfg.target;
 if ~iscell(target)
@@ -164,7 +148,7 @@ computeO2Hb = any(ismember(target, 'O2Hb'));
 cfg.montage = montage;
 
 % apply the (combined) montages
-dataout = ft_apply_montage(data, montage);
+dataout = ft_apply_montage(data, montage, 'keepunused', 'yes');
 
 if computetHb
   % total hemoglobin is the sum of oxygenated and deoxygenated hemoglobin
@@ -209,17 +193,8 @@ end
 
 dataout = ft_selectdata(tmpcfg, dataout);
 
-if size(dataout)>1
-  if isfreq
-    data = ft_appendfreq([], dataout{:});
-  elseif istimelock
-    data = ft_appendtimelock([], dataout{:});
-  else
-    data = ft_appenddata([], dataout{:});
-  end
-else
-  data = dataout;
-end
+% append the extra data
+data = ft_appenddata([], dataout, dataextra);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
