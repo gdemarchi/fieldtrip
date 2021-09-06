@@ -206,7 +206,7 @@ Ndata = numel(varargin);
 for indx=1:Ndata
   
   % open a new figure, or add it to the existing one
-  open_figure(keepfields(cfg, {'figure', 'clearfigure', 'position', 'visible', 'renderer', 'figurename', 'title'}));
+  open_figure(keepfields(cfg, {'figure', 'position', 'visible', 'renderer', 'figurename', 'title'}));
   
   if iscell(cfg.dataname)
     dataname = cfg.dataname{indx};
@@ -726,11 +726,6 @@ for indx=1:Ndata
       c = colorbar('location', cfg.colorbar);
       ylabel(c, cfg.colorbartext);
     end
-  end
-  
-  % Set renderer if specified
-  if ~isempty(cfg.renderer)
-    set(gcf, 'renderer', cfg.renderer)
   end
   
   % set the figure window title, but only if the user has not changed it
